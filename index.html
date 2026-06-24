@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2D5016">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GeoExplorer">
+<meta name="description" content="Γεωτεκτονικές ζώνες Ελλάδας - Εργαλείο πεδίου για γεωλόγους">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Greek Geology Explorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --green: #2D5016;
+    --green-light: #EAF3DE;
+    --bg: #FAFAF8;
+    --card: #ffffff;
+    --border: #E0DDD6;
+    --text: #1a1a1a;
+    --muted: #888;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+  }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: var(--green);
+    color: white;
+    padding: calc(var(--safe-top) + 12px) 16px 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-title { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-sub { font-size: 10px; opacity: 0.75; margin-top: 1px; }
+  .offline-badge {
+    margin-left: auto;
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 10px;
+    display: none;
+  }
+  .offline-badge.show { display: block; }
+
+  /* Scrollable content */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 12px calc(var(--safe-bot) + 12px);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .sec-head {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    margin-bottom: 10px;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 16px;
+    border-radius: 10px;
+    border: 1px solid #B0A890;
+    background: #F5F3EE;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    -webkit-appearance: none;
+  }
+  .btn:active { opacity: 0.75; }
+  .btn-primary { background: var(--green); color: white; border-color: var(--green); }
+  .btn-block { width: 100%; justify-content: center; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* GPS button big */
+  .gps-btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    background: var(--green);
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity 0.15s;
+  }
+  .gps-btn:active { opacity: 0.8; }
+  .gps-btn:disabled { opacity: 0.6; }
+
+  /* Inputs */
+  .input-group { margin-top: 12px; }
+  .input-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; display: block; }
+  .input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #C5C0B8;
+    border-radius: 8px;
+    font-size: 15px;
+    background: #FDFCFB;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .input:focus { outline: none; border-color: var(--green); }
+  .coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+
+  /* Error / info */
+  .error { color: #c0392b; font-size: 13px; margin-top: 8px; padding: 8px 12px; background: #fff0f0; border-radius: 8px; }
+  .loc-info { font-size: 12px; color: var(--muted); margin-top: 8px; padding: 6px 10px; background: #f5f5f3; border-radius: 6px; }
+
+  /* Loader */
+  .loader {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  .loader-dark {
+    border-color: rgba(0,0,0,0.15);
+    border-top-color: var(--green);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Zone tabs - horizontal scroll */
+  .zone-tabs-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -14px 12px;
+    padding: 0 14px;
+    scrollbar-width: none;
+  }
+  .zone-tabs-wrap::-webkit-scrollbar { display: none; }
+  .zone-tabs {
+    display: flex;
+    gap: 8px;
+    width: max-content;
+    padding-bottom: 2px;
+  }
+  .zone-tab {
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .zone-tab.active { border-color: currentColor; }
+
+  .zone-tag {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .zone-type { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+
+  /* Select */
+  .select {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #C5C0B8;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #FDFCFB;
+    margin-bottom: 12px;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+  .chip {
+    background: #F0EDE6;
+    border: 1px solid #D5D0C8;
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #3a3a3a;
+  }
+
+  /* Meta grid */
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; margin-bottom: 10px; }
+  .meta-item .lbl { font-weight: 700; color: #555; display: block; margin-bottom: 2px; }
+  .tect { font-size: 12px; color: #555; line-height: 1.5; }
+  .tect .lbl { font-weight: 700; }
+  .divider { border: none; border-top: 1px solid #EEE; margin: 12px 0; }
+  .zones-count { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+  /* Report types */
+  .report-types { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 10px; }
+  .rt-btn {
+    padding: 10px 4px;
+    border-radius: 8px;
+    border: 1px solid #C5C0B8;
+    background: #F8F7F4;
+    cursor: pointer;
+    font-size: 11px;
+    text-align: center;
+    -webkit-appearance: none;
+  }
+  .rt-btn .icon { font-size: 18px; margin-bottom: 2px; }
+  .rt-btn.active { background: var(--green); color: white; border-color: var(--green); }
+  .rt-btn:active { opacity: 0.75; }
+
+  /* Report box */
+  .report-box {
+    background: #F8F7F4;
+    border: 1px solid #DDD9D0;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 14px;
+    line-height: 1.75;
+    color: #222;
+    margin-top: 10px;
+    white-space: pre-wrap;
+  }
+
+  /* No zone */
+  .no-zone { color: var(--muted); font-size: 14px; text-align: center; padding: 20px 0; }
+
+  /* Toggle section */
+  .toggle-btn {
+    background: none;
+    border: none;
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Install prompt */
+  .install-banner {
+    background: #1A3A0A;
+    color: white;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    display: none;
+  }
+  .install-banner.show { display: flex; }
+  .install-banner button {
+    margin-left: auto;
+    background: white;
+    color: #1A3A0A;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .install-close { background: none !important; color: rgba(255,255,255,0.6) !important; padding: 4px 8px !important; }
+
+  .footer { font-size: 10px; color: #ccc; text-align: center; padding: 4px 0 2px; }
+</style>
+</head>
+<body>
+
+<!-- Install banner -->
+<div class="install-banner" id="installBanner">
+  <span>📲 Εγκατάσταση στην αρχική οθόνη</span>
+  <button id="installBtn">Εγκατάσταση</button>
+  <button class="install-close" onclick="document.getElementById('installBanner').classList.remove('show')">✕</button>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <div class="header-title">🗺 Greek Geology Explorer</div>
+    <div class="header-sub">v5.2 PWA · Τράνος · Παπανικολάου · Μουντράκης</div>
+  </div>
+  <div class="offline-badge" id="offlineBadge">✈ Offline</div>
+</div>
+
+<!-- Scrollable content -->
+<div class="content">
+
+  <!-- Location card -->
+  <div class="card">
+    <div class="sec-head">Εντοπισμός Θέσης</div>
+    <button class="gps-btn" id="gpsBtn" onclick="getGPS()">
+      <span id="gpsBtnIcon">📍</span>
+      <span id="gpsBtnText">GPS Εντοπισμός</span>
+    </button>
+    <button class="toggle-btn" onclick="toggleManual()">
+      <span id="manualArrow">▶</span> Χειροκίνητες Συντεταγμένες
+    </button>
+
+    <div id="manualSection" style="display:none; margin-top:10px">
+      <div class="coord-row">
+        <div>
+          <span class="input-label">Πλάτος (°Β)</span>
+          <input class="input" type="number" id="latIn" placeholder="40.63" step="0.0001" inputmode="decimal">
+        </div>
+        <div>
+          <span class="input-label">Μήκος (°Α)</span>
+          <input class="input" type="number" id="lonIn" placeholder="23.36" step="0.0001" inputmode="decimal">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="applyManual()">Εφαρμογή</button>
+    </div>
+
+    <div id="errorMsg" class="error" style="display:none"></div>
+    <div id="locInfo" class="loc-info" style="display:none"></div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsSection" style="display:none">
+
+    <!-- Zone tabs -->
+    <div class="card">
+      <div class="sec-head">Γεωτεκτονικές Ζώνες</div>
+      <div id="zonesCount" class="zones-count"></div>
+      <div class="zone-tabs-wrap">
+        <div id="zoneTabs" class="zone-tabs"></div>
+      </div>
+      <div class="divider" style="margin-top:0"></div>
+      <div id="zoneDetail"></div>
+    </div>
+
+    <!-- AI Report -->
+    <div class="card" id="reportCard">
+      <div class="sec-head">AI Γεωλογική Αναφορά</div>
+      <div class="report-types">
+        <button class="rt-btn active" id="rt-quick" onclick="setRT('quick')">
+          <div class="icon">⚡</div>Γρήγορη
+        </button>
+        <button class="rt-btn" id="rt-age" onclick="setRT('age')">
+          <div class="icon">📅</div>Ηλικία
+        </button>
+        <button class="rt-btn" id="rt-lithology" onclick="setRT('lithology')">
+          <div class="icon">🪨</div>Λιθολογία
+        </button>
+        <button class="rt-btn" id="rt-full" onclick="setRT('full')">
+          <div class="icon">📄</div>Πλήρης
+        </button>
+      </div>
+      <button class="btn btn-primary btn-block" id="genBtn" onclick="generateReport()">
+        Δημιουργία Αναφοράς
+      </button>
+      <div id="reportBox" style="display:none" class="report-box"></div>
+    </div>
+
+  </div>
+
+  <div class="footer">Πηγές: Τράνος (ΑΠΘ) · Παπανικολάου · Μουντράκης (1994) · ΙΓΜΕ</div>
+</div>
+
+<script>
+// ===== ZONES DATABASE =====
+const ZONES_DB = {
+  "Ενότητα Παξών (Προαπούλια)": {
+    color:"#FAECE7", borderColor:"#993C1D", textColor:"#712B13",
+    type:"Εξωτερικές Ελληνίδες",
+    subzones:{
+      "Κύρια Ενότητα Παξών":{
+        lithology:["Εβαπορίτες Τριαδικοί (ανυδρίτης, αλίτης, γύψος)","Ασβεστόλιθοι Ιουρ.–Κρητ.","Δολομιτικοί ασβεστόλιθοι","Μάργες Ηωκαίνου–Ολιγοκαίνου"],
+        age:"Μέσο Τριαδικό – Πλειόκαινο",
+        tectonics:"Αυτόχθονη ενότητα επί Απούλιας πλάκας. Ιόνια Επώθηση. Εβαπορίτες = ζώνη αποκόλλησης. Χωρίς φλύσχη (Αλεξούλη-Λειβαδίτη 2008).",
+        uses:"Πετρελαϊκό δυναμικό. Αδρανή ασβεστολίθων."
+      }
+    },
+    bounds:{latMin:37.5,latMax:40.2,lonMin:19.5,lonMax:21.0}
+  },
+  "Ιόνια Ενότητα":{
+    color:"#FBEAF0", borderColor:"#993556", textColor:"#72243E",
+    type:"Εξωτερικές Ελληνίδες",
+    subzones:{
+      "Προ-ορογενετική Ακολουθία":{
+        lithology:["Εβαπορίτες Τριαδικοί (>3000μ)","Ασβεστόλιθοι Φουσταπήδημα","Ασβεστόλιθοι Παντοκράτορα (Λιάσιο)","Σχιστόλιθοι Ποσειδωνιών / Ammonitico Rosso","Ασβεστόλιθοι Βίγλας με πυριτόλιθους","Ηωκαινικοί τουρβιδιτικοί ασβεστόλιθοι"],
+        age:"Μέσο Τριαδικό – Ανώτερο Ηώκαινο",
+        tectonics:"Ταφρογενής λεκάνη Μέσου–Ανώτερου Ιουρασικού. Εβαπορίτες+διάπειροι.",
+        uses:"Πετρελαϊκό δυναμικό (TOC έως 19%). Αδρανή."
+      },
+      "Ολιγοκαινικός Φλύσχης":{
+        lithology:["Φλύσχης (ψαμμίτες, άργιλοι, πηλίτες)","Μαργαϊκές λιθοφάσεις","Μειοκαινικές μάργες (~1000μ)"],
+        age:"Πριαμπόνιο – Κατώτερο Μειόκαινο",
+        tectonics:"Συνορογενετική ακολουθία. Λεκάνη προχώρας.",
+        uses:"Αδρανή. Αστάθεια πρανών."
+      }
+    },
+    bounds:{latMin:37.5,latMax:40.8,lonMin:20.0,lonMax:22.5}
+  },
+  "Ενότητα Γαβρόβου–Τριπόλεως":{
+    color:"#F1EFE8", borderColor:"#5F5E5A", textColor:"#444441",
+    type:"Εξωτερικές Ελληνίδες",
+    subzones:{
+      "Μεσοζωική Ανθρακική Πλατφόρμα":{
+        lithology:["Δολομίτες Μέσου–Ανώτερου Τριαδικού (~500μ)","Ασβεστόλιθοι Ιουρ.–Κρητ. νηριτικοί (~2500μ)","Λατυποπαγείς ασβεστόλιθοι (Άνω Κρητ.)"],
+        age:"Μέσο Τριαδικό – Ανώτερο Κρητιδικό (~3500μ)",
+        tectonics:"Ρηχή ανθρακική πλατφόρμα. Έντονη καρστικοποίηση. Φλύσχης Αν.Ηώκαινο–Αν.Ολιγόκαινο.",
+        uses:"Ασβεστόλιθος, τσιμέντο. Βαυξίτης. Καρστικά νερά."
+      },
+      "Στρώματα Τυρού (Βάση Τρίπολης)":{
+        lithology:["Πηλίτες, ψαμμίτες, χαλαζίτες","Ανδεσιτικές λάβες και πυροκλαστικά","Νηριτικοί ασβεστόλιθοι"],
+        age:"Λιθανθρακοφόρο–Πέρμιο έως Μέσο Τριαδικό",
+        tectonics:"Βάση στρωματογραφικής κολώνας Τρίπολης (συμφωνία). Ρηξιτάφρος.",
+        uses:"Αδρανή. Γεωτεχνικές δυσκολίες λόγω ετερογένειας."
+      },
+      "Παλαιογενής (Βωξίτες–Φλύσχης)":{
+        lithology:["Ασβεστόλιθοι με βωξίτες Παλαιοκαίνου–Ηωκαίνου","Μαύροι βιτουμενιούχοι ασβεστόλιθοι","Φλύσχης (Ολιγόκαινο–Κατ. Μειόκαινο, έως 1800μ)"],
+        age:"Παλαιόκαινο – Κατώτερο Μειόκαινο",
+        tectonics:"Συν-ορογενετική. Ολιστοστρώματα.",
+        uses:"Βαυξίτης. Γεωτεχνικές δυσκολίες."
+      }
+    },
+    bounds:{latMin:37.0,latMax:40.5,lonMin:20.5,lonMax:23.0}
+  },
+  "Κάλυμμα Πίνδου":{
+    color:"#EAF3DE", borderColor:"#3B6D11", textColor:"#27500A",
+    type:"Εξωτερικές Ελληνίδες",
+    subzones:{
+      "Μεσοζωική Ακολουθία (βαθιά θάλασσα)":{
+        lithology:["Κλαστικό Τριαδικό (ψαμμίτες, τόφφοι, γάββροι)","Ασβεστόλιθοι Δρυμού με κερατόλιθους (~300μ)","Ραδιολαρίτες + Ασβ. με Calpionella (~350μ)","Λεπτοπλακώδεις πελαγικοί ασβ. (~400μ)"],
+        age:"Ανώτερο Τριαδικό – Παλαιόκαινο (~1050μ)",
+        tectonics:"Τυπική γεωσυγκλινή αύλακα. Λεκάνη βαθιάς θάλασσας. Επώθηση >80χλμ προς δυτικά. Ωκεάνιοι βασάλτες = ωκεάνιος χαρακτήρας (Αλεξούλη-Λειβαδίτη 2008).",
+        uses:"Κερατόλιθοι (αδρανή). Cr, Ni."
+      },
+      "Πινδικός Φλύσχης":{
+        lithology:["Παχυστρωματώδεις ψαμμίτες","Μαύροι άργιλοι–ψαμμίτες","Εναλλαγή ψαμμιτών-αργίλων (έως 4χλμ)"],
+        age:"Παλαιόκαινο – Ολιγόκαινο",
+        tectonics:"Συνορογενετική ακολουθία τουρβιδιτών.",
+        uses:"Αδρανή."
+      }
+    },
+    bounds:{latMin:37.5,latMax:41.0,lonMin:21.0,lonMax:23.5}
+  },
+  "Ενότητα Παρνασσού–Γκιόνας":{
+    color:"#FAEEDA", borderColor:"#854F0B", textColor:"#633806",
+    type:"Εξωτερικές Ελληνίδες — Ενδιάμεση θέση",
+    subzones:{
+      "Ανθρακική Πλατφόρμα Παρνασσού":{
+        lithology:["Ασβεστόλιθοι Τριαδικοί–Κρητιδικοί","Δολομίτες","Ασβεστόλιθοι με ρουδίστες","Βαυξίτης (Κενομάνιο–Τουρώνιο) — τρεις τουλάχιστον ορίζοντες"],
+        age:"Ανώτερο Τριαδικό – Παλαιόκαινο (φλύσχης έως Κατ.Ηώκαινο)",
+        tectonics:"Ενδιάμεση θέση μεταξύ εξωτερικών και εσωτερικών ζωνών (Αλεξούλη-Λειβαδίτη 2008). Αυτόνομη νηριτική πλατφόρμα. Τρεις διακοπές ιζηματογένεσης με αντίστοιχη βωξιτογένεση. Ισχυρή καρστικοποίηση.",
+        uses:"Ασβεστόλιθος. Βαυξίτης Αμφίσσης–Δελφών."
+      }
+    },
+    bounds:{latMin:38.2,latMax:39.2,lonMin:21.8,lonMax:23.2}
+  },
+  "Υποπελαγονική Ζώνη":{
+    color:"#E6F1FB", borderColor:"#185FA5", textColor:"#0C447C",
+    type:"Εσωτερικές Ελληνίδες",
+    subzones:{
+      "Νηριτικά–Πελαγικά Ιζήματα":{
+        lithology:["Ανθρακικά νηριτικά–πελαγικά ιζήματα","Μικρολατυποπαγείς ασβεστόλιθοι","Σχιστοκερατολιθική διάπλαση (ραδιολαρίτες)","Ιζήματα βαθειάς θάλασσας"],
+        age:"Ανώτερο Τριαδικό – Ανώτερο Ιουρασικό",
+        tectonics:"Δυτική κατωφέρεια Πελαγονικής. Εξωτερική οφειολιθική λωρίδα ERO. Εκχύσεις οφιολίθων (Αλεξούλη-Λειβαδίτη 2008).",
+        uses:"Αδρανή. Κερατόλιθοι. Ni λατερίτης."
+      },
+      "Οφειολιθικό Σύμπλεγμα (Ηω-Ελληνικό Κάλυμμα)":{
+        lithology:["Οφειόλιθοι (περιδοτίτες, γάββροι, βασάλτες)","Σερπεντινίτες","Mélange (Γράμμος, Βούρινος, Όθρυς)","Λατεριτικά κοιτάσματα (Ni, Cr)"],
+        age:"Άνω Ιουρασικό – Κατώτερο Κρητιδικό",
+        tectonics:"Ηω-Ελληνικό τεκτονικό κάλυμμα. Κατάλοιπα ωκεανού Πίνδου (Νεο-Τηθύς).",
+        uses:"Cr (Βούρινος). Ni (λατερίτες). Αδρανή σερπεντινίτη."
+      },
+      "Ζώνη Αμπελακίων (HP/LT — Άξονας Ολύμπου–Όσσας–Πηλίου)":{
+        lithology:["Γλαυκοφανιτικοί σχιστόλιθοι","Κυανοσχιστόλιθοι","Χαλαζίτες υψηλής πίεσης","Μάρμαρα με ορυκτά HP/LT","Αμφιβολίτες (ανάδρομη φάση)"],
+        age:"Πρωτόλιθος Τριαδικό–Ιουρασικό, μεταμ. Κατ.Κρητιδικό–Ηώκαινο",
+        tectonics:"HP/LT ζώνη (γλαυκοφανιτική φάση) στον άξονα Ολύμπου–Όσσας–Κάμβουνίων–Πηλίου. Εντοπίζεται κάτω από Πελαγονικό κάλυμμα (Μουντράκης 1994). Κίνηση εκτατικής παραμόρφωσης προς ΝΔ κατά Ολιγόκαινο.",
+        uses:"Επιστημονικό ενδιαφέρον. Αδρανή σχιστολίθων."
+      },
+      "Άνω Κρητιδικά Επικλυσιγενή":{
+        lithology:["Ασβεστόλιθοι Κενομανίου–Μαιστριχτίου","Κροκαλοπαγές βάσης (ασυμφωνία)"],
+        age:"Κενομάνιο – Μαιστρίχτιο",
+        tectonics:"Μεσο-Κρητιδική ασυμφωνία.",
+        uses:"Ασβεστόλιθος. Νικελιούχα ορυκτά στη βάση."
+      }
+    },
+    bounds:{latMin:38.5,latMax:41.2,lonMin:20.5,lonMax:23.0}
+  },
+  "Πελαγονική Ζώνη":{
+    color:"#EEEDFE", borderColor:"#534AB7", textColor:"#3C3489",
+    type:"Εσωτερικές Ελληνίδες — Κιμμερικό Ηπειρωτικό Τέμαχος",
+    subzones:{
+      "Παλαιοζωικό Κρυσταλλοσχιστώδες Υπόβαθρο":{
+        lithology:["Ορθο- και παρα-γνεύσιοι, μιγματιτικοί γνεύσιοι","Αμφιβολίτες, γνευσιοσχιστόλιθοι","Μεγάλες μάζες πλουτώνιων πετρωμάτων"],
+        age:"Προκάμβριο – Παλαιοζωικό (~300 Ma)",
+        tectonics:"Βαρίσκιο υπόβαθρο. Κιμμερικό ηπειρωτικό τέμαχος (Μουντράκης 1983-1986). Τεκτονικά παράθυρα Ολύμπου, Όσσας, Ριζωμάτων, Κρανιάς στην Κάτω-πλάκα.",
+        uses:"Γνεύσιοι ως αδρανή. Μάρμαρο (Φλώρινα, Κοζάνη)."
+      },
+      "Ανθρακικό Κάλυμμα (Τριαδικό–Ιουρασικό)":{
+        lithology:["Ανωτριαδικοί–Ιουρασικοί κρυσταλλικοί ασβεστόλιθοι","Μάρμαρα","Δολομίτες"],
+        age:"Μέσο Τριαδικό – Κατώτερο Ιουρασικό",
+        tectonics:"Ανθρακική πλατφόρμα Τηθύος.",
+        uses:"Μάρμαρο. Ασβεστόλιθος. Αδρανή."
+      },
+      "Άνω Κρητιδικοί & Φλύσχης":{
+        lithology:["Κρυσταλλικοί ασβεστόλιθοι","Σιδηρονικελιούχα κοιτάσματα (1ος βωξιτ. ορίζοντας)","Φλύσχης Παλαιοκαίνου–Ηωκαίνου"],
+        age:"Τιθώνιο – Ηώκαινο",
+        tectonics:"Μεσο-Κρητιδική ασυμφωνία.",
+        uses:"Ni (Λάρυμνα, Εύβοια). Βωξίτης. Ασβεστόλιθος."
+      }
+    },
+    bounds:{latMin:38.5,latMax:41.2,lonMin:21.0,lonMax:23.5}
+  },
+  "Σερβομακεδονική Μάζα (SSM)":{
+    color:"#E1F5EE", borderColor:"#0F6E56", textColor:"#085041",
+    type:"Εσωτερικές Ελληνίδες — Ελληνική Ενδοχώρα",
+    subzones:{
+      "Ενότητα Βερτίσκου (Ανώτερη)":{
+        lithology:["Μιγματιτικοί γνεύσιοι, οφθαλμογνεύσιοι","Μαρμαρυγιακοί σχιστόλιθοι","Μεταγάββροι–μεταδιαβάσες"],
+        age:"Προκάμβριο (~540-635 Ma) — Παλαιοζωικό",
+        tectonics:"Εκλογιτική μεταμόρφωση → Αμφιβολιτική → Ανάδρομη πρασινοσχιστολιθική. Κοινή Κιμμερική προέλευση με Πελαγονική και Ροδόπη (Μουντράκης 1994).",
+        uses:"Γνεύσιοι ως αδρανή. Μάρμαρα (Σερρών)."
+      },
+      "Ενότητα Κερδυλλίων (Κατώτερη)":{
+        lithology:["Βιοτιτικοί γνεύσιοι με λευκοσώματα (~2700μ)","Μάρμαρα (30-300μ)","Αμφιβολίτες και ασβεστοπυριτικά"],
+        age:"Προκάμβριο (~540-635 Ma) — Παλαιοζωικό",
+        tectonics:"Κατώτερη ενότητα SSM. Πιθανό τεκτονικό παράθυρο Παγγαίου κάτω από Κερδύλλια και Σιδηρόνερο (Μουντράκης 1994).",
+        uses:"Μάρμαρα Χαλκιδικής. Au-Ag-Zn-Pb: Στρατώνι, Ολυμπιάδα, Σκουριές."
+      },
+      "Γρανιτοειδή SSM":{
+        lithology:["Παλαιοζωικά γρανιτικά πετρώματα","Ηώκαινο–Ολιγόκαινο (30-40 Ma): Σιθωνία, Ιερισσός, Στρατώνι"],
+        age:"Παλαιοζωικό – Κατώτερο Ολιγόκαινο",
+        tectonics:"Πολυφασικός μαγματισμός. Τελευταίο γεγονός: σύγκλιση Απούλιας–Ευρασίας.",
+        uses:"Γρανίτης Σιθωνίας ως δομικό. Au-Ag-Zn-Pb-Cu (Σκουριές, Στρατώνι, Ολυμπιάδα)."
+      }
+    },
+    bounds:{latMin:40.4,latMax:41.3,lonMin:22.3,lonMax:24.5}
+  },
+  "Περιροδοπική Ζώνη (CRBTS)":{
+    color:"#FAEEDA", borderColor:"#854F0B", textColor:"#633806",
+    type:"Εσωτερικές Ελληνίδες",
+    subzones:{
+      "Ενότητα Άσπρης Βρύσης–Χορτιάτη":{
+        lithology:["Ηφαιστειοκλαστικά Περμοτριαδικά","Ανθρακικά Μέσου Τριαδικού","Μαγματική Σουίτα Χορτιάτη: δολερίτες, σπιλίτες, pillow lavas"],
+        age:"Περμοτριαδικό – Μέσο Ιουρασικό",
+        tectonics:"Γλαυκοφανιτικά μετα-ιζήματα (Μουντράκης 1994). Χαμηλής βαθμίδας μεταμόρφωση.",
+        uses:"Αδρανή. Mn (Μελισσοχώρι)."
+      }
+    },
+    bounds:{latMin:40.3,latMax:41.4,lonMin:22.8,lonMax:26.5}
+  },
+  "Ζώνη Αξιού":{
+    color:"#E8F4E8", borderColor:"#2D7A2D", textColor:"#1A5C1A",
+    type:"Εσωτερικές Ελληνίδες — Εσωτερική Οφειολιθική Λωρίδα IRO",
+    subzones:{
+      "Ζώνη Πάικου — Μεσοζωική Ακολουθία":{
+        lithology:["Μάρμαρα, σιπολίνες, κρυσταλλικοί ασβεστόλιθοι","Χλωριτικοί–επιδοτικοί σχιστόλιθοι","Σπιλίτες–κερατοφύρες–διαβάσες"],
+        age:"Τριαδικό – Κρητιδικό",
+        tectonics:"Μεταμορφωμένη ηφαιστειοϊζηματογενής σειρά. Εσωτερική οφειολιθική λωρίδα IRO.",
+        uses:"Αδρανή ασβεστολίθων. Μάρμαρα."
+      },
+      "Τεκτονικό Παράθυρο Πάικου":{
+        lithology:["Κρυσταλλικοί ασβεστόλιθοι Τριαδικής ηλικίας (Γκαντάτς)","Σχιστόλιθοι","Ηφαιστειοϊζηματογενής σχηματισμός Καστανερής (Ιουρασικό)","Ασβεστόλιθοι Άνω Ιουρ.–Μέσο-Άνω Κρητιδικού"],
+        age:"Τριαδικό – Άνω Κρητιδικό",
+        tectonics:"Πιθανό τεκτονικό παράθυρο κάτω από οφειολιθικό κάλυμμα και κάλυμμα Πελαγονικής (Godfriaux & Ricou 1990, 1991, Μουντράκης 1994). Ρήγμα εφελκυστικής αποκόλλησης.",
+        uses:"Αδρανή ασβεστολίθων. Επιστημονικό ενδιαφέρον."
+      },
+      "Ζώνη Αλμωπίας — Οφειολιθικό Σύμπλεγμα":{
+        lithology:["Οφειόλιθοι: περιδοτίτες, σερπεντινίτες, γάββροι","Mélange οφειολιθικό","Ραδιολαριτικοί κερατόλιθοι, πηλίτες"],
+        age:"Ανώτερο Ιουρασικό",
+        tectonics:"Κατάλοιπα ωκεανού Βαρδάρη (Παλαιο-Τηθύς). Τρεις υποζώνες (Mercier 1973).",
+        uses:"Cr (Βέρμιο). Αδρανή σερπεντινίτη."
+      }
+    },
+    bounds:{latMin:40.5,latMax:41.5,lonMin:21.8,lonMax:23.2}
+  },
+  "Ζώνη Ροδόπης":{
+    color:"#F0EEFF", borderColor:"#6A5ACD", textColor:"#4B3EA8",
+    type:"Εσωτερικές Ελληνίδες — Ελληνική Ενδοχώρα",
+    subzones:{
+      "Ενότητα Παγγαίου":{
+        lithology:["Γρανίτης–ορθογνεύσιος (βάση)","Μαρμαρυγιακοί σχιστόλιθοι","Μάρμαρα Φαλάκρου (~7000μ)"],
+        age:"Προκάμβριο – Παλαιοζωικό (πρωτόλιθος)",
+        tectonics:"Πιθανό ανθρακικό τεκτονικό παράθυρο κάτω από Κερδύλλια και Σιδηρόνερο (Μουντράκης 1994). Ρήγματα εφελκυστικής αποκόλλησης.",
+        uses:"Μάρμαρα (Παγγαίο, Καβάλα). Au-Ag."
+      },
+      "Ενότητα Σιδηρόνερου":{
+        lithology:["Ορθογνεύσιοι (βιοτιτικοί)","Λεπτυνιτικοί γνεύσιοι","Γρανατιτικοί μικασχιστόλιθοι"],
+        age:"Παλαιοζωικό (πρωτόλιθος ~283-286 Ma)",
+        tectonics:"Επωθείται πάνω στην Ενότητα Παγγαίου. Εκτατική τεκτονική WNW-ESE.",
+        uses:"Αδρανή γνευσίων. Θεμελίωση υποδομών."
+      },
+      "Κεντρική Ροδόπη — Κρυσταλλοσχιστώδες":{
+        lithology:["Γνεύσιοι (αμφιβολιτικοί, γρανιτικοί)","Αμφιβολίτες (Σειρά H: ~3χλμ)","Μάρμαρα (Σειρά F: 5.5-7χλμ)","Εκλογίτες (τοπικά)"],
+        age:"Προκάμβριο – Παλαιοζωικό",
+        tectonics:"Υψηλής βαθμίδας μεταμόρφωση αμφιβολιτικής φάσης. Εκλογιτική μεταμόρφωση. Κοινή Κιμμερική προέλευση με SSM και Πελαγονική (Μουντράκης 1994).",
+        uses:"Μάρμαρο Θάσου–Ξάνθης. Αδρανή γνευσίων."
+      },
+      "Πλουτωνίτες Ροδόπης":{
+        lithology:["Γρανίτες, τονάλιτες, γρανοδιορίτες","Ηφαιστίτες (ρυόλιθοι, ανδεσίτες — Θράκη)"],
+        age:"16–87 Ma (Κρητ.–Μειόκαινο)",
+        tectonics:"Εκτατική τεκτονική Παλαιογενούς–Νεογενούς.",
+        uses:"Γρανίτης ως δομικό. Au-Ag-Cu (Θράκη)."
+      }
+    },
+    bounds:{latMin:40.8,latMax:41.7,lonMin:24.0,lonMax:26.5}
+  },
+  "Αττικο-Κυκλαδική Μάζα":{
+    color:"#FCEBEB", borderColor:"#A32D2D", textColor:"#791F1F",
+    type:"Εσωτερικές Ελληνίδες (αμφισβητούμενη αυτονομία)",
+    subzones:{
+      "Κυκλαδικό Κρυσταλλοσχιστώδες":{
+        lithology:["Μάρμαρα (Πάρος, Νάξος)","Σχιστόλιθοι","Αμφιβολίτες","Εκλογίτες","Γνεύσιοι"],
+        age:"Παλαιοζωικό – Μεσοζωικό",
+        tectonics:"Η ύπαρξη ως ανεξάρτητης ζώνης αμφισβητείται — πιθανή νότια προέκταση Πελαγονικής ή ανεξάρτητο ηπειρωτικό τέμαχος (Αλεξούλη-Λειβαδίτη 2008). Κυκλαδικό μεταμορφικό πυρήνα. Εκτατική τεκτονική Μειόκαινου.",
+        uses:"Μάρμαρο Πάρου–Νάξου. Εμερύ Νάξου. Γεωθερμία Μήλου."
+      },
+      "Ηφαιστειακό Τόξο Αιγαίου":{
+        lithology:["Ανδεσίτες","Ραϋόλιθοι","Ελαφρόπετρα (Σαντορίνη)","Βασάλτες"],
+        age:"Ανώτερο Μειόκαινο – Σύγχρονο",
+        tectonics:"Ενεργό ηφαιστειακό τόξο (Μέθανα, Μήλος, Σαντορίνη, Νίσυρος).",
+        uses:"Ελαφρόπετρα. Γεωθερμία."
+      }
+    },
+    bounds:{latMin:36.5,latMax:38.5,lonMin:23.5,lonMax:28.0}
+  },
+  "Μεσοελληνική Αύλακα":{
+    color:"#FFF5DC", borderColor:"#B8860B", textColor:"#7B5B08",
+    type:"Μολασσικά Ιζήματα — Λεκάνη Προχώρας",
+    subzones:{
+      "Σχηματισμός Κρανιάς (Μέσο–Άνω Ηώκαινο)":{
+        lithology:["Αργιλλικοί τουρβιδίτες","Οφειολιθικά κροκαλοπαγή","Τουρβιδιτικοί λεπτόκοκκοι ψαμμίτες (~1500μ)"],
+        age:"Μέσο–Άνω Ηώκαινο",
+        tectonics:"Πρώτες μολασσικές αποθέσεις. Οφειολιθικό υπόβαθρο.",
+        uses:"Αδρανή ψαμμιτών."
+      },
+      "Σχηματισμός Επταχωρίου (Άνω Ηώκαινο–Κατ. Ολιγόκαινο)":{
+        lithology:["Κυανότεφρες μάργες–ιλυόλιθοι (~600μ)","Λιγνιτικά κοιτάσματα (σπάνια)","Λεπτές ψαμμιτικές ενστρώσεις"],
+        age:"Άνω Ηώκαινο – Κατώτερο Ολιγόκαινο (Σταμπίνιο)",
+        tectonics:"Λιμναία φάση. Χαρακτηριστικές κυανότεφρες μάργες.",
+        uses:"Λιγνίτης (σπάνιος). Κεραμικές ύλες."
+      },
+      "Σχηματισμός Πενταλόφου–Μετεώρων (Άνω Ολιγόκαινο–Κατ. Μειόκαινο)":{
+        lithology:["Πολύμικτα αδρομερή κροκαλοπαγή (~3000μ)","Δελταϊκές αποθέσεις τύπου Gilbert (Μέτεωρα)"],
+        age:"Άνω Ολιγόκαινο – Κατώτερο Μειόκαινο (Ακουιτάνιο)",
+        tectonics:"Υποθαλάσσιες δελταϊκές αποθέσεις. Παλεορεύματα προς ΝΔ.",
+        uses:"Αδρανή κροκαλοπαγών. Τουρισμός (Μέτεωρα)."
+      },
+      "Σχηματισμός Τσοτυλίου (Κατ.–Μέσο Μειόκαινο)":{
+        lithology:["Ψαμμίτες και ιλυόλιθοι σε πυκνές εναλλαγές (>2000μ)","Λιγνιτικές ενστρώσεις","Απολιθώματα φύλλων και κλάδων δέντρων"],
+        age:"Κατώτερο – Μέσο Μειόκαινο (Βουρδιγάλιο)",
+        tectonics:"Χερσαία/λιμναία φάση.",
+        uses:"Αδρανή ψαμμιτών. Παλαιοβοτανικό ενδιαφέρον."
+      },
+      "Σχηματισμός Οντριάς (Βουρδιγάλιο–Λάγκιο)":{
+        lithology:["Ψαμμίτες, μάργες, ασβεστόλιθοι υφαλοκρηπίδας","Ασβεστόλιθοι με Clypeaster"],
+        age:"Κατώτερο – Μέσο Μειόκαινο",
+        tectonics:"Τελευταίος σχηματισμός αύλακας. Ιζηματογένεση τελειώνει Μέσο–Άνω Μειόκαινο.",
+        uses:"Ασβεστόλιθος. Απολιθώματα (Clypeaster)."
+      }
+    },
+    bounds:{latMin:39.3,latMax:41.0,lonMin:20.8,lonMax:22.5}
+  },
+  "Λεκάνη Θράκης":{
+    color:"#FFF0E0", borderColor:"#CC6600", textColor:"#994400",
+    type:"Μολασσικά Ιζήματα — Λεκάνη Προχώρας",
+    subzones:{
+      "Ηωκαινικά–Ολιγοκαινικά (Κατώτερη Ενότητα)":{
+        lithology:["Τουρβιδιτικοί ψαμμίτες και γραουβάκες","Μάργες και αργιλόλιθοι","Νουμμουλιτικοί ασβεστόλιθοι","Τόφφοι ηφαιστειακοί"],
+        age:"Μέσο Ηώκαινο – Κατώτερο Ολιγόκαινο",
+        tectonics:"Βαθιάς θάλασσας τουρβιδιτικές αποθέσεις. Υπόβαθρο: Intra-Pontide Subduction Complex.",
+        uses:"Πετρελαϊκό δυναμικό (φυσικό αέριο). Αδρανή."
+      },
+      "Ολιγοκαινικά–Μειοκαινικά (Ανώτερη Ενότητα)":{
+        lithology:["Εναλλαγές ψαμμιτών–αργίλων","Μάργες θαλάσσιας φάσης","Λιγνίτες"],
+        age:"Ολιγόκαινο – Μέσο Μειόκαινο",
+        tectonics:"Ρηχομαρίνα έως ηπειρωτικά.",
+        uses:"Λιγνίτης. Φυσικό αέριο."
+      }
+    },
+    bounds:{latMin:40.5,latMax:41.7,lonMin:25.5,lonMax:27.5}
+  },
+  "Ζώνη HP/LT (Φυλλίτες–Χαλαζίτες & Plattenkalk)":{
+    color:"#EDE0F5", borderColor:"#6B21A8", textColor:"#4A1472",
+    type:"Κατώτερη Λιθοτεκτονική Ακολουθία — HP/LT Μεταμόρφωση",
+    subzones:{
+      "Ενότητα Μάνης (Plattenkalk)":{
+        lithology:["Πλακώδεις ασβεστόλιθοι Αν.Τριαδικού–Άνω Κρητιδικού","Μάρμαρα αδροκρυσταλλικά","Πολύχρωμα σιπολινομάρμαρα (Παλαιόκαινο–Ηώκαινο)","Ολιγοκαινικός φλύσχης (ελαφρά μεταμ.)"],
+        age:"Ανώτερο Τριαδικό – Κατώτερο Ολιγόκαινο",
+        tectonics:"Ελαφρά μεταμορφωμένη. Ανάλογη Ιόνιας ζώνης. Αυτόχθονη. Τεκτονικά παράθυρα Ταΰγετου, Πάρνωνα, Λευκών Ορέων Κρήτης.",
+        uses:"Μάρμαρο. Αδρανή. Τουρισμός (φαράγγια)."
+      },
+      "Ενότητα Αρνάς (Φυλλίτες–Χαλαζίτες)":{
+        lithology:["Φυλλίτες (σερικιτικοί, χλωριτικοί)","Χαλαζίτες (πτυχωμένοι)","Μάρμαρα με παρεμβολές","Μεταβασίτες και σερπεντινίτες"],
+        age:"Παλαιοζωικό – Τριαδικό (πρωτόλιθος)",
+        tectonics:"HP/LT (P=9-14 kbar, T=320-500°C). Τεκτονικά παράθυρα Πελοποννήσου και Κρήτης.",
+        uses:"Χαλαζίτες ως αδρανή."
+      },
+      "Στρώματα Τυρού / Ραβδούχα":{
+        lithology:["Πηλίτες, ψαμμίτες, χαλαζίτες","Ανδεσιτικές λάβες και πυροκλαστικά","Νηριτικοί ασβεστόλιθοι"],
+        age:"Λιθανθρακοφόρο–Πέρμιο έως Μέσο Τριαδικό",
+        tectonics:"Βάση στρωματογραφικής κολώνας Τρίπολης. Ρηξιτάφρος.",
+        uses:"Αδρανή. Γεωτεχνικά δύσκολο υλικό."
+      },
+      "Ενότητα Δυτικής Κρήτης (Τρυπάλι)":{
+        lithology:["Μαρμαρυγιακοί σχιστόλιθοι με χαλαζίτες","Μάρμαρα (μικροί ορίζοντες)","Γύψοι (Μέσο Τριαδικό)"],
+        age:"Λιθανθρακοφόρο – Ιουρασικό",
+        tectonics:"Κατώτερη ενότητα Κρήτης. Εβαπορίτες = ζώνη αποκόλλησης.",
+        uses:"Γύψος. Αδρανή μαρμάρων."
+      }
+    },
+    bounds:{latMin:35.0,latMax:38.5,lonMin:21.0,lonMax:27.0}
+  },
+  "Νεογενή–Τεταρτογενή Ιζήματα":{
+    color:"#E1F5EE", borderColor:"#1D9E75", textColor:"#085041",
+    type:"Μετααλπικά",
+    subzones:{
+      "Νεογενείς Λεκάνες":{
+        lithology:["Μάργες","Άμμοι","Κροκαλοπαγή","Λιγνιτοφόρα στρώματα"],
+        age:"Μειόκαινο – Πλειόκαινο",
+        tectonics:"Τεκτονικές τάφρους (Horst-Graben). Εκτατική τεκτονική μετά Κατ.Μειόκαινο (Αλεξούλη-Λειβαδίτη 2008).",
+        uses:"Λιγνίτης (Πτολεμαΐδα). Γεωτεχνικές δυσκολίες."
+      },
+      "Τεταρτογενείς Αποθέσεις":{
+        lithology:["Αλλούβια","Κώνοι κορημάτων","Αναβαθμίδες","Τραβερτίνης"],
+        age:"Πλειστόκαινο – Ολόκαινο",
+        tectonics:"Σύγχρονες αποθέσεις.",
+        uses:"Αδρανή. Αρδευτικά ύδατα."
+      }
+    },
+    bounds:{latMin:37.0,latMax:41.5,lonMin:20.0,lonMax:26.5}
+  }
+};
+
+const ZONE_PRIORITY = [
+  "Μεσοελληνική Αύλακα","Λεκάνη Θράκης",
+  "Ζώνη HP/LT (Φυλλίτες–Χαλαζίτες & Plattenkalk)",
+  "Σερβομακεδονική Μάζα (SSM)","Ζώνη Αξιού","Ζώνη Ροδόπης",
+  "Περιροδοπική Ζώνη (CRBTS)","Πελαγονική Ζώνη","Υποπελαγονική Ζώνη",
+  "Αττικο-Κυκλαδική Μάζα","Κάλυμμα Πίνδου","Ενότητα Παρνασσού–Γκιόνας",
+  "Ενότητα Γαβρόβου–Τριπόλεως","Ιόνια Ενότητα","Ενότητα Παξών (Προαπούλια)",
+  "Νεογενή–Τεταρτογενή Ιζήματα"
+];
+
+let currentLoc=null, detectedZones=[], activeZoneIdx=0, activeSubzone=null, reportType="quick";
+let manualOpen=false;
+
+function detectAllZones(lat,lon){
+  return ZONE_PRIORITY.filter(zn=>{
+    const b=ZONES_DB[zn]?.bounds;
+    return b && lat>=b.latMin && lat<=b.latMax && lon>=b.lonMin && lon<=b.lonMax;
+  });
+}
+
+function getGPS(){
+  const btn=document.getElementById('gpsBtn');
+  document.getElementById('gpsBtnIcon').innerHTML='<div class="loader"></div>';
+  document.getElementById('gpsBtnText').textContent='Εντοπισμός...';
+  btn.disabled=true;
+  document.getElementById('errorMsg').style.display='none';
+
+  if(!navigator.geolocation){
+    showError('Το GPS δεν υποστηρίζεται σε αυτή τη συσκευή.');
+    resetGpsBtn(); return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      resetGpsBtn();
+      processLocation(pos.coords.latitude, pos.coords.longitude);
+    },
+    err=>{
+      resetGpsBtn();
+      let msg='Δεν ήταν δυνατός ο εντοπισμός.';
+      if(err.code===1) msg='Απαιτείται άδεια πρόσβασης στην τοποθεσία.';
+      if(err.code===2) msg='Η τοποθεσία δεν είναι διαθέσιμη. Δοκιμάστε χειροκίνητη εισαγωγή.';
+      showError(msg);
+      if(!manualOpen) toggleManual();
+    },
+    {enableHighAccuracy:true, timeout:15000, maximumAge:30000}
+  );
+}
+
+function resetGpsBtn(){
+  document.getElementById('gpsBtnIcon').textContent='📍';
+  document.getElementById('gpsBtnText').textContent='GPS Εντοπισμός';
+  document.getElementById('gpsBtn').disabled=false;
+}
+
+function showError(msg){
+  const e=document.getElementById('errorMsg');
+  e.textContent=msg; e.style.display='block';
+}
+
+function toggleManual(){
+  manualOpen=!manualOpen;
+  document.getElementById('manualSection').style.display=manualOpen?'block':'none';
+  document.getElementById('manualArrow').textContent=manualOpen?'▼':'▶';
+}
+
+function applyManual(){
+  const lat=parseFloat(document.getElementById('latIn').value);
+  const lon=parseFloat(document.getElementById('lonIn').value);
+  if(isNaN(lat)||isNaN(lon)||lat<34||lat>42||lon<19||lon>28){
+    showError('Εισάγετε έγκυρες συντεταγμένες για τον ελληνικό χώρο.');
+    return;
+  }
+  document.getElementById('errorMsg').style.display='none';
+  processLocation(lat,lon);
+}
+
+function processLocation(lat,lon){
+  currentLoc={lat,lon};
+  document.getElementById('locInfo').style.display='block';
+  document.getElementById('locInfo').textContent=`📌 ${lat.toFixed(5)}°Β, ${lon.toFixed(5)}°Α`;
+  document.getElementById('reportBox').style.display='none';
+  detectedZones=detectAllZones(lat,lon);
+  activeZoneIdx=0; activeSubzone=null;
+  renderResults();
+}
+
+function renderResults(){
+  const sec=document.getElementById('resultsSection');
+  if(!detectedZones.length){
+    sec.style.display='block';
+    document.getElementById('zoneDetail').innerHTML='<div class="no-zone">⚠️ Η θέση εκτός γεωτεκτονικών ζωνών βάσης δεδομένων.</div>';
+    document.getElementById('zonesCount').textContent='';
+    document.getElementById('zoneTabs').innerHTML='';
+    document.getElementById('reportCard').style.display='none';
+    return;
+  }
+  sec.style.display='block';
+  document.getElementById('reportCard').style.display='block';
+  const c=detectedZones.length;
+  document.getElementById('zonesCount').textContent=`${c} ζών${c===1?'η':'ες'} ανιχνεύθηκ${c===1?'ε':'αν'}`;
+
+  const tabsEl=document.getElementById('zoneTabs');
+  tabsEl.innerHTML='';
+  detectedZones.forEach((zn,i)=>{
+    const d=ZONES_DB[zn], tab=document.createElement('div');
+    tab.className='zone-tab'+(i===activeZoneIdx?' active':'');
+    tab.style.background=i===activeZoneIdx?d.color:'#F0F0EE';
+    tab.style.color=d.textColor;
+    tab.style.borderColor=i===activeZoneIdx?d.borderColor:'transparent';
+    tab.textContent=zn.length>22?zn.substring(0,20)+'…':zn;
+    tab.title=zn;
+    tab.onclick=()=>{ activeZoneIdx=i; activeSubzone=null; document.getElementById('reportBox').style.display='none'; renderResults(); };
+    tabsEl.appendChild(tab);
+  });
+  renderZoneDetail();
+}
+
+function renderZoneDetail(){
+  const zn=detectedZones[activeZoneIdx]; if(!zn) return;
+  const d=ZONES_DB[zn], subzones=Object.keys(d.subzones);
+  if(!activeSubzone||!d.subzones[activeSubzone]) activeSubzone=subzones[0];
+  const sz=d.subzones[activeSubzone];
+
+  const chipsHtml=sz.lithology.map(l=>`<span class="chip">${l}</span>`).join('');
+  document.getElementById('zoneDetail').innerHTML=`
+    <div>
+      <span class="zone-tag" style="background:${d.color};color:${d.textColor};border:1px solid ${d.borderColor}">${zn}</span>
+      <div class="zone-type">${d.type}</div>
+      <div class="sec-head">Επιλογή Ενότητας</div>
+      <select class="select" onchange="activeSubzone=this.value;document.getElementById('reportBox').style.display='none';renderZoneDetail()">
+        ${subzones.map(s=>`<option value="${s}" ${s===activeSubzone?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <div class="sec-head">Λιθολογία</div>
+      <div class="chips">${chipsHtml}</div>
+      <div class="meta-grid">
+        <div class="meta-item"><span class="lbl">Ηλικία</span>${sz.age}</div>
+        <div class="meta-item"><span class="lbl">Χρήσεις</span>${sz.uses}</div>
+      </div>
+      <div class="tect"><span class="lbl">Τεκτονική: </span>${sz.tectonics}</div>
+    </div>`;
+}
+
+function setRT(rt){
+  reportType=rt;
+  ['quick','age','lithology','full'].forEach(r=>document.getElementById('rt-'+r).classList.toggle('active',r===rt));
+  document.getElementById('reportBox').style.display='none';
+}
+
+async function generateReport(){
+  const zn=detectedZones[activeZoneIdx]; if(!zn) return;
+  const d=ZONES_DB[zn], sz=d.subzones[activeSubzone]; if(!sz) return;
+
+  if(!navigator.onLine){
+    const box=document.getElementById('reportBox');
+    box.textContent='⚠️ Χωρίς σύνδεση. Η AI αναφορά απαιτεί internet.';
+    box.style.display='block'; return;
+  }
+
+  const btn=document.getElementById('genBtn');
+  btn.innerHTML='<div class="loader loader-dark" style="margin-right:6px"></div> Δημιουργία...';
+  btn.disabled=true;
+  document.getElementById('reportBox').style.display='none';
+
+  const prompts={
+    quick:`Γεωτεκτονική ζώνη: ${zn} (${d.type})\nΕνότητα: ${activeSubzone}\nΛιθολογία: ${sz.lithology.join(", ")}\n\nΔώσε σύντομη επαγγελματική γεωλογική περιγραφή (3-4 προτάσεις) για γεωλόγο στο πεδίο. Στα ελληνικά.`,
+    age:`Ζώνη: ${zn}\nΕνότητα: ${activeSubzone}\nΗλικία: ${sz.age}\n\nΕξήγησε τη στρωματογραφική ηλικία και σημασία. Στα ελληνικά, 4-5 προτάσεις.`,
+    lithology:`Ζώνη: ${zn}\nΕνότητα: ${activeSubzone}\nΛιθολογία: ${sz.lithology.join(", ")}\nΗλικία: ${sz.age}\n\nΑναλυτική λιθολογική περιγραφή: ορυκτολογία, υφή, χαρακτηριστικά αναγνώρισης στο πεδίο. Στα ελληνικά.`,
+    full:`Ζώνη: ${zn} (${d.type})\nΕνότητα: ${activeSubzone}\nΛιθολογία: ${sz.lithology.join(", ")}\nΗλικία: ${sz.age}\nΤεκτονική: ${sz.tectonics}\nΧρήσεις: ${sz.uses}\n\nΠλήρης γεωλογική αναφορά: α) λιθολογία, β) στρωματογραφία, γ) τεκτονική ιστορία, δ) πρακτικές εφαρμογές. Επαγγελματικό ύφος, στα ελληνικά.`
+  };
+
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-6", max_tokens:1000,
+        system:"Είσαι έμπειρος γεωλόγος με εξειδίκευση στη γεωλογία των Ελληνίδων Οροσειρών. Πηγές: Τράνος (ΑΠΘ), Παπανικολάου, Μουντράκης.",
+        messages:[{role:"user",content:prompts[reportType]}]
+      })
+    });
+    const data=await res.json();
+    const box=document.getElementById('reportBox');
+    box.textContent=data.content?.[0]?.text||"Σφάλμα ανάκτησης.";
+    box.style.display='block';
+  } catch(e){
+    const box=document.getElementById('reportBox');
+    box.textContent="Σφάλμα σύνδεσης. Ελέγξτε το internet.";
+    box.style.display='block';
+  }
+
+  btn.innerHTML='Δημιουργία Αναφοράς';
+  btn.disabled=false;
+}
+
+// ===== PWA: Offline detection =====
+function updateOnlineStatus(){
+  document.getElementById('offlineBadge').classList.toggle('show', !navigator.onLine);
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
+// ===== PWA: Install prompt =====
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  deferredPrompt=e;
+  document.getElementById('installBanner').classList.add('show');
+});
+document.getElementById('installBtn').addEventListener('click', async()=>{
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const {outcome}=await deferredPrompt.userChoice;
+  deferredPrompt=null;
+  document.getElementById('installBanner').classList.remove('show');
+});
+window.addEventListener('appinstalled', ()=>{
+  document.getElementById('installBanner').classList.remove('show');
+});
+
+// ===== Service Worker =====
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
