@@ -319,7 +319,7 @@
 <div class="header">
   <div>
     <div class="header-title">🗺 Greek Geology Explorer</div>
-    <div class="header-sub">v5.2 PWA · Τράνος · Παπανικολάου · Μουντράκης</div>
+    <div class="header-sub">v5.2 PWA</div>
   </div>
   <div class="offline-badge" id="offlineBadge">✈ Offline</div>
 </div>
@@ -395,7 +395,7 @@
 
   </div>
 
-  <div class="footer">Πηγές: Τράνος (ΑΠΘ) · Παπανικολάου · Μουντράκης (1994) · ΙΓΜΕ</div>
+  <div class="footer">Βασισμένο σε ακαδημαϊκές πηγές ΑΠΘ · ΙΓΜΕ</div>
 </div>
 
 <script>
@@ -944,7 +944,7 @@ async function generateReport(){
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         model:"claude-sonnet-4-6", max_tokens:1000,
-        system:"Είσαι έμπειρος γεωλόγος με εξειδίκευση στη γεωλογία των Ελληνίδων Οροσειρών. Πηγές: Τράνος (ΑΠΘ), Παπανικολάου, Μουντράκης.",
+        system:"Είσαι έμπειρος γεωλόγος με εξειδίκευση στη γεωλογία των Ελληνίδων Οροσειρών.",
         messages:[{role:"user",content:prompts[reportType]}]
       })
     });
