@@ -608,19 +608,20 @@ let currentLoc=null, detectedZones=[], activeZoneIdx=0, activeSubzone=null, repo
 let manualOpen=false;
 
 function detectAllZones(lat, lon) {
-  const found = ZONE_PRIORITY.filter(zn => {
-    if (zn === "Νεογενή–Τεταρτογενή Ιζήματα") return false; // εξαιρείται από κανονική ανίχνευση
+  // Μία μόνο ζώνη — η πρώτη που ταιριάζει κατά σειρά προτεραιότητας
+  for (const zn of ZONE_PRIORITY) {
+    if (zn === "Νεογενή–Τεταρτογενή Ιζήματα") continue;
     const b = ZONES_DB[zn]?.bounds;
-    return b && lat >= b.latMin && lat <= b.latMax && lon >= b.lonMin && lon <= b.lonMax;
-  });
-  // Αν δεν βρέθηκε τίποτε, επιστρέφουμε Νεογενή ως fallback
-  if (found.length === 0) {
-    const b = ZONES_DB["Νεογενή–Τεταρτογενή Ιζήματα"].bounds;
-    if (lat >= b.latMin && lat <= b.latMax && lon >= b.lonMin && lon <= b.lonMax) {
-      return ["Νεογενή–Τεταρτογενή Ιζήματα"];
+    if (b && lat >= b.latMin && lat <= b.latMax && lon >= b.lonMin && lon <= b.lonMax) {
+      return [zn];
     }
   }
-  return found;
+  // Fallback: Νεογενή
+  const b = ZONES_DB["Νεογενή–Τεταρτογενή Ιζήματα"].bounds;
+  if (lat >= b.latMin && lat <= b.latMax && lon >= b.lonMin && lon <= b.lonMax) {
+    return ["Νεογενή–Τεταρτογενή Ιζήματα"];
+  }
+  return [];
 }
 
 function getGPS() {
